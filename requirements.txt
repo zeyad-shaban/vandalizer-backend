@@ -1,0 +1,22 @@
+# Web & Workers
+fastapi
+uvicorn
+python-multipart
+celery
+redis
+
+# Image Processing
+opencv-python-headless
+Pillow
+
+# Hugging Face & Model Hub
+huggingface-hub
+hf-transfer
+transformers
+
+# Model Execution Frameworks
+openvino
+optimum
+optimum-intel
+ultralytics
+simple-lama-inpainting
