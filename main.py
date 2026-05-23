@@ -8,7 +8,7 @@ import tasks as tasks
 from celery.result import AsyncResult
 import config as config
 from schemas import SegmentRequest
-
+import os
 
 if not config.DEBUG:
     if config.UPLOAD_DIR.exists():
@@ -23,6 +23,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+os.makedirs("uploads", exist_ok=True)
+os.makedirs("outputs", exist_ok=True)  # Good to add this if you use an outputs folder too!
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
