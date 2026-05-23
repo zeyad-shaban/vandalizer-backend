@@ -3,6 +3,8 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
+rm -f dump.rdb # Delete the incompatible database backup
+
 echo "Starting Redis server in the background..."
 redis-server --protected-mode no &
 
