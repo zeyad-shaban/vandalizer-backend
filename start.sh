@@ -4,7 +4,7 @@
 set -e
 
 echo "Starting Redis server in the background..."
-redis-server --daemonize yes --protected-mode no
+redis-server --protected-mode no &
 
 echo "Starting Celery worker in the background..."
 celery -A tasks worker --loglevel=info &
