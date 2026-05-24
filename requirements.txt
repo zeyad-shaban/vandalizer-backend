@@ -10,13 +10,17 @@ opencv-python-headless
 Pillow
 
 # Hugging Face & Model Hub
+diffusers
 huggingface-hub
 hf-transfer
+safetensors
 transformers
 
 # Model Execution Frameworks
 openvino
 optimum
 optimum-intel
+torch
+torchvision
 ultralytics
 simple-lama-inpainting

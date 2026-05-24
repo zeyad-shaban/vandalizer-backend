@@ -15,6 +15,7 @@ MODELS: dict[str, Any] = {
     "detector_processor": None,
     "segmentor": None,
     "inpaintor": None,
+    "remover": None,
 }
 
 celery_app = Celery(
@@ -96,30 +97,46 @@ def segment_objects(self, job_id: str, bboxes=None, points=None, point_labels=No
 
 
 @celery_app.task(bind=True)
-def inpaint(self, job_id: str, prompt: str, negative_prompt: str = "", num_inference_steps: int = 6, guidance_scale: float = 0.0) -> bool:
+def inpaint(
+    self,
+    job_id: str,
+    mode: str = "blur",
+    positive_prompt: str = "",
+    negative_prompt: str = "",
+    num_inference_steps: int = 4,
+) -> bool:
     job_path = config.UPLOAD_DIR / job_id
+    save_path = job_path / config.INPAINTOR_OUT_PATH
+    if save_path.exists():
+        save_path.unlink()
+
     orig_img = Image.open(job_path / config.INPUT_IMG_NAME).convert("RGB")
     mask_img = Image.open(job_path / config.SEGMENTOR_OUT_BIN_PATH).convert("L")
 
-    mode = "blur"
-
-    if mode == "inpaint":
+    if mode == "diffusion":
         model = model_manager.get_inpaintor_model(MODELS)
-        inpainted_img = model(
-            prompt=prompt,
+        model_size = (config.INPAINTOR_IMAGE_SIZE, config.INPAINTOR_IMAGE_SIZE)
+        generated = model(
+            prompt=positive_prompt,
             negative_prompt=negative_prompt,
-            image=orig_img,
-            mask_image=mask_img,
-            num_inference_steps=6,
+            image=orig_img.resize(model_size),
+            mask_image=mask_img.resize(model_size, Image.Resampling.NEAREST),
+            num_inference_steps=num_inference_steps,
             guidance_scale=0.0,
         ).images[0]
+        result = generated.resize(orig_img.size)
 
     elif mode == "remove":
         model = model_manager.get_removing_model(MODELS)
+        result = model(orig_img, mask_img)
 
     elif mode == "blur":
         result = blur_img_with_mask(orig_img, mask_img)
-        result.save(job_path / config.INPAINTOR_OUT_PATH)
+
+    else:
+        raise ValueError(f"Unsupported inpaint mode: {mode}")
+
+    result.convert("RGB").save(save_path)
         
     if self.request.id is None:
         return result
@@ -131,18 +148,24 @@ def inpaint(self, job_id: str, prompt: str, negative_prompt: str = "", num_infer
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    prompt = "hat"
-    img = Image.open(config.UPLOAD_DIR / config.DEBUG_JOB_ID / config.INPUT_IMG_NAME)
+    # prompt = "hat"
+    # img = Image.open(config.UPLOAD_DIR / config.DEBUG_JOB_ID / config.INPUT_IMG_NAME)
 
     # %%
-    detection_res = detect_objects(job_id=config.DEBUG_JOB_ID, prompt=prompt)
-    plot_groundingdino_boxes(img, detection_res)
+    # detection_res = detect_objects(job_id=config.DEBUG_JOB_ID, prompt=prompt)
+    # plot_groundingdino_boxes(img, detection_res)
 
     # %%
-    segment_res = segment_objects.run(job_id=config.DEBUG_JOB_ID, bboxes=detection_res["boxes"])
+    # segment_res = segment_objects.run(job_id=config.DEBUG_JOB_ID, bboxes=detection_res["boxes"])
 
     # %%
-    inpainted_res = inpaint(job_id=config.DEBUG_JOB_ID, prompt="red hat high quality", negative_prompt="blurry, messy, bad looking", num_inference_steps=4, guidance_scale=0)
+    inpainted_res = inpaint(
+        job_id=config.DEBUG_JOB_ID,
+        mode="diffusion",
+        positive_prompt="red hat high quality",
+        negative_prompt="blurry, messy, bad looking",
+        num_inference_steps=4,
+    )
 
     # %%
     img = segment_res.plot()

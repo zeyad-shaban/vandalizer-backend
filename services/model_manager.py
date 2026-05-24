@@ -3,6 +3,7 @@ from ultralytics import SAM
 import openvino as ov
 import config as config
 from optimum.intel import OVStableDiffusionXLInpaintPipeline
+from simple_lama_inpainting import SimpleLama
 
 
 def get_detector_model(MODELS: dict):
@@ -29,16 +30,30 @@ def get_segmentor_model(MODELS: dict):
 
 def get_inpaintor_model(MODELS: dict):
     if MODELS['inpaintor'] is None:
-        MODELS['inpaintor'] = OVStableDiffusionXLInpaintPipeline.from_pretrained(
-            config.INPAINTOR_MODEL_NAME,
-            device="CPU" # or "GPU"
+        model_source = (
+            config.INPAINTOR_MODEL_PATH
+            if config.INPAINTOR_MODEL_PATH.exists()
+            else config.INPAINTOR_MODEL_NAME
         )
+        kwargs = {"device": config.INPAINTOR_DEVICE}
+        if model_source == config.INPAINTOR_MODEL_NAME:
+            kwargs["export"] = True
+
+        pipe = OVStableDiffusionXLInpaintPipeline.from_pretrained(
+            str(model_source),
+            **kwargs,
+        )
+        pipe.reshape(
+            batch_size=1,
+            height=config.INPAINTOR_IMAGE_SIZE,
+            width=config.INPAINTOR_IMAGE_SIZE,
+            num_images_per_prompt=1,
+        )
+        pipe.compile()
+        MODELS['inpaintor'] = pipe
     return MODELS['inpaintor']
     
 def get_removing_model(MODELS: dict):
-    if MODELS['obj_remove'] is None:
-        MODELS['obj_remove'] = OVStableDiffusionXLInpaintPipeline.from_pretrained(
-            config.INPAINTOR_MODEL_NAME,
-            device="CPU" # or "GPU"
-        )
-    return MODELS['obj_remove']
+    if MODELS['remover'] is None:
+        MODELS['remover'] = SimpleLama()
+    return MODELS['remover']

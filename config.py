@@ -25,7 +25,10 @@ DETECTOR_OUT_PATH = "detector_boxes.json"
 
 INPAINTOR_OUT_PATH = "inpainted.png"
 
-INPAINTOR_MODEL_NAME = "stabilityai/stable-diffusion-xl-base-1.0"
+INPAINTOR_MODEL_NAME = "stabilityai/sdxl-turbo"
+INPAINTOR_MODEL_PATH = Path(os.getenv("INPAINTOR_MODEL_PATH", "models/ov_sdxl_turbo_inpaint"))
+INPAINTOR_DEVICE = os.getenv("INPAINTOR_DEVICE", "CPU")
+INPAINTOR_IMAGE_SIZE = 512
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")

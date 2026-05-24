@@ -10,7 +10,7 @@ import shutil
 import tasks as tasks
 from celery.result import AsyncResult
 import config as config
-from schemas import SegmentRequest
+from schemas import InpaintRequest, SegmentRequest
 from services import job_lifecycle
 
 job_lifecycle.ensure_upload_dir()
@@ -85,9 +85,19 @@ async def segment_objects(job_id: str, data: SegmentRequest):
 
 
 @app.post("/process/inpaint/{job_id}")
-async def inapint(job_id, prompt: str = Form(...)):
+async def inpaint(job_id: str, data: InpaintRequest):
     tasks.celery_app.backend.delete(f"celery-task-meta-{job_id}")
-    tasks.inpaint.apply_async(args=[job_id, prompt], task_id=job_id)
+    tasks.inpaint.apply_async(
+        args=[
+            job_id,
+            data.mode,
+            data.positive_prompt,
+            data.negative_prompt,
+            data.num_inference_steps,
+        ],
+        task_id=job_id,
+    )
+    return job_id
 
 
 if __name__ == "__main__":
