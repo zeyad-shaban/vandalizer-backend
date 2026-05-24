@@ -16,6 +16,7 @@ WORKDIR /app
 
 # Step 1: Install Python dependencies
 COPY requirements.txt .
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Step 2: Runtime defaults for Hugging Face Spaces
