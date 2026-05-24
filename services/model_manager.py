@@ -29,12 +29,8 @@ def get_segmentor_model(MODELS: dict):
 
 
 def get_inpaintor_model(MODELS: dict):
-    if MODELS['inpaintor'] is None:
-        model_source = (
-            config.INPAINTOR_MODEL_PATH
-            if config.INPAINTOR_MODEL_PATH.exists()
-            else config.INPAINTOR_MODEL_NAME
-        )
+    if MODELS["inpaintor"] is None:
+        model_source = config.INPAINTOR_MODEL_PATH if config.INPAINTOR_MODEL_PATH.exists() else config.INPAINTOR_MODEL_NAME
         kwargs = {"device": config.INPAINTOR_DEVICE}
         if model_source == config.INPAINTOR_MODEL_NAME:
             kwargs["export"] = True
@@ -50,10 +46,21 @@ def get_inpaintor_model(MODELS: dict):
             num_images_per_prompt=1,
         )
         pipe.compile()
-        MODELS['inpaintor'] = pipe
-    return MODELS['inpaintor']
-    
+        MODELS["inpaintor"] = pipe
+    return MODELS["inpaintor"]
+
+
 def get_removing_model(MODELS: dict):
-    if MODELS['remover'] is None:
-        MODELS['remover'] = SimpleLama()
-    return MODELS['remover']
+    if MODELS["remover"] is None:
+        import torch
+
+        # Intercept the load function to force CPU mapping
+        original_load = torch.jit.load
+        torch.jit.load = lambda *a, **kw: original_load(*a, **{**kw, "map_location": "cpu"})
+
+        MODELS["remover"] = SimpleLama()
+
+        # Restore the original PyTorch load function right after
+        torch.jit.load = original_load
+
+    return MODELS["remover"]
