@@ -17,6 +17,7 @@ safetensors
 transformers
 
 # Model Execution Frameworks
+accelerate
 openvino
 optimum
 optimum-intel
