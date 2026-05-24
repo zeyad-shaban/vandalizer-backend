@@ -19,8 +19,13 @@ MODELS: dict[str, Any] = {
 
 celery_app = Celery(
     "worker",
-    broker="redis://localhost:6379/0",
-    backend="redis://localhost:6379/1",
+    broker=config.CELERY_BROKER_URL,
+    backend=config.CELERY_RESULT_BACKEND,
+)
+celery_app.conf.update(
+    broker_connection_retry_on_startup=True,
+    result_expires=config.JOB_TTL_SECONDS,
+    task_track_started=True,
 )
 
 
@@ -91,7 +96,7 @@ def segment_objects(self, job_id: str, bboxes=None, points=None, point_labels=No
 
 
 @celery_app.task(bind=True)
-def inpaint(self, job_id: str, prompt: str, negative_prompt: str, num_inference_steps: int, guidance_scale: float) -> bool:
+def inpaint(self, job_id: str, prompt: str, negative_prompt: str = "", num_inference_steps: int = 6, guidance_scale: float = 0.0) -> bool:
     job_path = config.UPLOAD_DIR / job_id
     orig_img = Image.open(job_path / config.INPUT_IMG_NAME).convert("RGB")
     mask_img = Image.open(job_path / config.SEGMENTOR_OUT_BIN_PATH).convert("L")

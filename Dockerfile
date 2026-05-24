@@ -17,8 +17,14 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Step 2: Enable fast downloads
-ENV HF_HUB_ENABLE_HF_TRANSFER=1
+# Step 2: Runtime defaults for Hugging Face Spaces
+ENV HF_HUB_ENABLE_HF_TRANSFER=1 \
+    DEBUG=false \
+    RESET_JOBS_ON_STARTUP=true \
+    JOB_TTL_SECONDS=3600 \
+    JOB_CLEANUP_INTERVAL_SECONDS=300 \
+    CELERY_BROKER_URL=redis://localhost:6379/0 \
+    CELERY_RESULT_BACKEND=redis://localhost:6379/1
 
 # Step 3. Download models for caching
 RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('zeyadcode/ov_owlv2_model', local_dir='./models/ov_owlv2_model')"    
