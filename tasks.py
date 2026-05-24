@@ -57,7 +57,7 @@ def detect_objects(job_id: str, prompt: str) -> dict:
 
     results = processor.post_process_grounded_object_detection(
         outputs,
-        threshold=0.05,
+        threshold=0.1,
         target_sizes=[img.size[::-1]],
     )
 
@@ -148,15 +148,15 @@ def inpaint(
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    # prompt = "hat"
-    # img = Image.open(config.UPLOAD_DIR / config.DEBUG_JOB_ID / config.INPUT_IMG_NAME)
+    prompt = "head"
+    img = Image.open(config.UPLOAD_DIR / config.DEBUG_JOB_ID / config.INPUT_IMG_NAME)
 
     # %%
-    # detection_res = detect_objects(job_id=config.DEBUG_JOB_ID, prompt=prompt)
-    # plot_groundingdino_boxes(img, detection_res)
+    detection_res = detect_objects(job_id=config.DEBUG_JOB_ID, prompt=prompt)
+    plot_groundingdino_boxes(img, detection_res)
 
     # %%
-    # segment_res = segment_objects.run(job_id=config.DEBUG_JOB_ID, bboxes=detection_res["boxes"])
+    segment_res = segment_objects.run(job_id=config.DEBUG_JOB_ID, bboxes=detection_res["boxes"])
 
     # %%
     inpainted_res = inpaint(
@@ -165,7 +165,7 @@ if __name__ == "__main__":
         positive_prompt="red hat high quality",
         negative_prompt="blurry, messy, bad looking",
         num_inference_steps=4,
-    )
+    ) # type: ignore
 
     # %%
     img = segment_res.plot()
