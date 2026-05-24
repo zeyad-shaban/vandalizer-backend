@@ -34,7 +34,7 @@ RUN python -c "from huggingface_hub import snapshot_download; snapshot_download(
 RUN python -c "from ultralytics import SAM; import os; os.chdir('./models'); SAM('mobile_sam.pt')"
 RUN python -c "from transformers import AutoProcessor; AutoProcessor.from_pretrained('google/owlv2-base-patch16-ensemble')"
 RUN python -c "import torch; original_load = torch.jit.load; torch.jit.load = lambda *a, **kw: original_load(*a, **{**kw, 'map_location': 'cpu'}); from simple_lama_inpainting import SimpleLama; SimpleLama()"
-RUN python -c "from optimum.intel import OVStableDiffusionXLInpaintPipeline; pipe = OVStableDiffusionXLInpaintPipeline.from_pretrained('stabilityai/sdxl-turbo', export=True, device='CPU'); pipe.reshape(batch_size=1, height=512, width=512, num_images_per_prompt=1); pipe.save_pretrained('./models/ov_sdxl_turbo_inpaint')"
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('zeyadcode/ov_sdxl_turbo_inpaint', local_dir='./models/ov_sdxl_turbo_inpaint')"
 
 
 # Step 4: Copy the rest of the application
