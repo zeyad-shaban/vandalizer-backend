@@ -102,7 +102,6 @@ def inpaint(
     job_id: str,
     mode: str = "blur",
     positive_prompt: str = "",
-    negative_prompt: str = "",
     num_inference_steps: int = 4,
 ) -> bool:
     job_path = config.UPLOAD_DIR / job_id
@@ -118,7 +117,6 @@ def inpaint(
         model_size = (config.INPAINTOR_IMAGE_SIZE, config.INPAINTOR_IMAGE_SIZE)
         generated = model(
             prompt=positive_prompt,
-            negative_prompt=negative_prompt,
             image=orig_img.resize(model_size),
             mask_image=mask_img.resize(model_size, Image.Resampling.NEAREST),
             num_inference_steps=num_inference_steps,
@@ -163,7 +161,6 @@ if __name__ == "__main__":
         job_id=config.DEBUG_JOB_ID,
         mode="diffusion",
         positive_prompt="red hat high quality",
-        negative_prompt="blurry, messy, bad looking",
         num_inference_steps=4,
     ) # type: ignore
 

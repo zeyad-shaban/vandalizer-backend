@@ -39,12 +39,16 @@ def get_inpaintor_model(MODELS: dict):
             str(model_source),
             **kwargs,
         )
-        pipe.reshape(
-            batch_size=1,
-            height=config.INPAINTOR_IMAGE_SIZE,
-            width=config.INPAINTOR_IMAGE_SIZE,
-            num_images_per_prompt=1,
-        )
+
+        # ❌ REMOVE OR COMMENT OUT THIS ENTIRE BLOCK ❌
+        # pipe.reshape(
+        #     batch_size=1,
+        #     height=config.INPAINTOR_IMAGE_SIZE,
+        #     width=config.INPAINTOR_IMAGE_SIZE,
+        #     num_images_per_prompt=1,
+        # )
+
+        # Keep compile!
         pipe.compile()
         MODELS["inpaintor"] = pipe
     return MODELS["inpaintor"]
