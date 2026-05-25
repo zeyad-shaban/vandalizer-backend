@@ -92,6 +92,7 @@ async def inpaint(job_id: str, data: InpaintRequest):
             job_id,
             data.mode,
             data.positive_prompt,
+            data.strength,
             data.num_inference_steps,
         ],
         task_id=job_id,

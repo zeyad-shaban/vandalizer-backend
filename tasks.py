@@ -102,6 +102,7 @@ def inpaint(
     job_id: str,
     mode: str = "blur",
     positive_prompt: str = "",
+    strength=0.7,
     num_inference_steps: int = 4,
 ) -> bool:
     job_path = config.UPLOAD_DIR / job_id
@@ -120,7 +121,8 @@ def inpaint(
             image=orig_img.resize(model_size),
             mask_image=mask_img.resize(model_size, Image.Resampling.NEAREST),
             num_inference_steps=num_inference_steps,
-            guidance_scale=0.0,
+            strength= strength,
+            guidance_scale=0,
         ).images[0]
         result = generated.resize(orig_img.size)
 
