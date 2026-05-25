@@ -2,6 +2,7 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, UploadFile, Form
+from fastapi import HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -12,6 +13,9 @@ from celery.result import AsyncResult
 import config as config
 from schemas import InpaintRequest, SegmentRequest
 from services import job_lifecycle
+from PIL import Image, UnidentifiedImageError
+import numpy as np
+from utils import mask_image_to_binary, save_visual_mask_from_binary
 
 job_lifecycle.ensure_upload_dir()
 
@@ -77,11 +81,43 @@ async def detect_objects(job_id: str, prompt: str = Form(...)):
     return job_id
 
 
+@app.post("/process/generate_mask/{job_id}")
+async def generate_mask(job_id: str, prompt: str = Form(...)):
+    tasks.celery_app.backend.delete(f"celery-task-meta-{job_id}")
+    tasks.generate_mask.apply_async(args=[job_id, prompt], task_id=job_id)
+    return job_id
+
+
 @app.post("/process/segment_objects/{job_id}")
 async def segment_objects(job_id: str, data: SegmentRequest):
     tasks.celery_app.backend.delete(f"celery-task-meta-{job_id}")
     tasks.segment_objects.apply_async(args=[job_id, data.bboxes], task_id=job_id)
     return job_id
+
+
+@app.post("/api/upload-manual-mask")
+async def upload_manual_mask(job_id: str = Form(...), mask: UploadFile = File(...)):
+    job_path = config.UPLOAD_DIR / job_id
+    input_path = job_path / config.INPUT_IMG_NAME
+
+    if not job_path.exists() or not input_path.exists():
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    try:
+        mask_img = Image.open(mask.file)
+        mask_img.load()
+    except (UnidentifiedImageError, OSError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid mask image") from exc
+
+    input_img = Image.open(input_path)
+    binary_mask = mask_image_to_binary(mask_img, size=input_img.size)
+    binary_mask.save(job_path / config.SEGMENTOR_OUT_BIN_PATH)
+    save_visual_mask_from_binary(
+        np.asarray(binary_mask) > 0,
+        job_path / config.SEGMENTOR_OUT_VISUAL_PATH,
+    )
+
+    return {"job_id": job_id, "mask_uploaded": True}
 
 
 @app.post("/process/inpaint/{job_id}")

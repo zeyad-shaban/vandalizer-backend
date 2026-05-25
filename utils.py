@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import colorsys
 import matplotlib.patches as patches
 import numpy as np
 from PIL import Image, ImageFilter
@@ -43,32 +42,48 @@ def plot_groundingdino_boxes(img: Image.Image, result, figsize=(12, 8), show_sco
     plt.show()
 
 
-def save_visual_mask(mask_data, out_path):
-    masks = (mask_data > 0.5) if mask_data.dtype != bool else mask_data.astype(bool)
+MASK_OVERLAY_RGBA = (225, 29, 72, int(0.58 * 255))
 
-    n_masks, H, W = masks.shape
+
+def save_visual_mask_from_binary(mask, out_path):
+    mask_bool = np.asarray(mask)
+    if mask_bool.ndim == 3:
+        mask_bool = np.any(mask_bool > 0, axis=0)
+    elif mask_bool.dtype != bool:
+        mask_bool = mask_bool > 0
+
+    H, W = mask_bool.shape
     out = np.zeros((H, W, 4), dtype=np.uint8)
-    alpha_val = int(0.7 * 255)
+    out[mask_bool] = MASK_OVERLAY_RGBA
+    Image.fromarray(out, mode="RGBA").save(out_path)
 
-    # generate distinct colors via HSV
-    for i in range(n_masks):
-        h = (i / n_masks) % 1.0
-        r, g, b = colorsys.hsv_to_rgb(h, 0.65, 0.95)
-        r, g, b = int(r * 255), int(g * 255), int(b * 255)
 
-        m = masks[i]
-        if m.dtype != bool:
-            m = m.astype(bool)
+def save_visual_mask(mask_data, out_path):
+    masks = np.asarray(mask_data)
+    if masks.ndim == 2:
+        combined_mask = masks > 0
+    else:
+        masks = (masks > 0.5) if masks.dtype != bool else masks.astype(bool)
+        combined_mask = np.any(masks, axis=0) if masks.size else np.zeros(masks.shape[-2:], dtype=bool)
 
-        # apply color and alpha (later masks overwrite earlier ones)
-        out[m, 0] = r
-        out[m, 1] = g
-        out[m, 2] = b
-        out[m, 3] = alpha_val
+    save_visual_mask_from_binary(combined_mask, out_path)
 
-    # optional: ensure background alpha = 0 (already zero by initialization)
-    img = Image.fromarray(out, mode="RGBA")
-    img.save(out_path)
+
+def mask_image_to_binary(mask_img: Image.Image, size=None) -> Image.Image:
+    rgba = mask_img.convert("RGBA")
+    if size is not None and rgba.size != size:
+        rgba = rgba.resize(size, Image.Resampling.NEAREST)
+
+    rgba_arr = np.asarray(rgba)
+    alpha = rgba_arr[..., 3]
+
+    if np.any(alpha < 255):
+        mask_bool = alpha > 12
+    else:
+        gray = np.asarray(rgba.convert("L"))
+        mask_bool = gray > 127
+
+    return Image.fromarray(mask_bool.astype(np.uint8) * 255, mode="L")
 
 
 def blur_img_with_mask(

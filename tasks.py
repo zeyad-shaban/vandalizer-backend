@@ -2,7 +2,7 @@
 from celery import Celery
 import config as config
 import torch
-from utils import get_prompt_list, plot_groundingdino_boxes, save_visual_mask, blur_img_with_mask
+from utils import get_prompt_list, plot_groundingdino_boxes, save_visual_mask, save_visual_mask_from_binary, blur_img_with_mask
 from PIL import Image
 from transformers import BatchFeature
 import numpy as np
@@ -30,8 +30,7 @@ celery_app.conf.update(
 )
 
 
-@celery_app.task
-def detect_objects(job_id: str, prompt: str) -> dict:
+def _detect_objects(job_id: str, prompt: str) -> dict:
     prompt_list = get_prompt_list(prompt)
 
     job_path = config.UPLOAD_DIR / job_id
@@ -73,27 +72,69 @@ def detect_objects(job_id: str, prompt: str) -> dict:
     return result
 
 
-@celery_app.task(bind=True)
-def segment_objects(self, job_id: str, bboxes=None, points=None, point_labels=None):
+def _save_empty_mask(job_path, image_size):
+    width, height = image_size
+    combined_mask = np.zeros((height, width), dtype=np.uint8)
+    Image.fromarray(combined_mask, mode="L").save(job_path / config.SEGMENTOR_OUT_BIN_PATH)
+    save_visual_mask_from_binary(combined_mask, job_path / config.SEGMENTOR_OUT_VISUAL_PATH)
+    return combined_mask
+
+
+def _segment_objects(job_id: str, bboxes=None, points=None, point_labels=None):
     job_path = config.UPLOAD_DIR / job_id
     img = Image.open(job_path / config.INPUT_IMG_NAME)
+
+    if not bboxes and not points:
+        _save_empty_mask(job_path, img.size)
+        return False
 
     model = model_manager.get_segmentor_model(MODELS)
     results = model(img, bboxes=bboxes, points=points, labels=point_labels)
 
     mask_data = results[0].masks.data.cpu().numpy()  # n_masks x H x W
 
-    combined_mask = np.any(mask_data, axis=0).astype(np.uint8) * 255
+    if mask_data.size == 0:
+        combined_mask = _save_empty_mask(job_path, img.size)
+    else:
+        combined_mask = np.any(mask_data, axis=0).astype(np.uint8) * 255
+
     save_bin_path = job_path / config.SEGMENTOR_OUT_BIN_PATH
     save_visual_path = job_path / config.SEGMENTOR_OUT_VISUAL_PATH
 
     Image.fromarray(combined_mask).save(save_bin_path)
-    save_visual_mask(mask_data, save_visual_path)
+    save_visual_mask(combined_mask, save_visual_path)
+
+    return results[0]
+
+
+@celery_app.task
+def detect_objects(job_id: str, prompt: str) -> dict:
+    return _detect_objects(job_id, prompt)
+
+
+@celery_app.task(bind=True)
+def segment_objects(self, job_id: str, bboxes=None, points=None, point_labels=None):
+    result = _segment_objects(job_id, bboxes=bboxes, points=points, point_labels=point_labels)
 
     if self.request.id is None:
-        return results[0]
+        return result
 
     return True
+
+
+@celery_app.task(bind=True)
+def generate_mask(self, job_id: str, prompt: str) -> dict:
+    detection_result = _detect_objects(job_id, prompt)
+    bboxes = detection_result.get("boxes", [])
+    _segment_objects(job_id, bboxes=bboxes)
+
+    if self.request.id is None:
+        return detection_result
+
+    return {
+        "boxes": len(bboxes),
+        "labels": detection_result.get("text_labels", []),
+    }
 
 
 @celery_app.task(bind=True)
